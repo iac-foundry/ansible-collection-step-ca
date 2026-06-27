@@ -1,0 +1,12 @@
+---
+# Molecule test configuration for blueprints.step_ca.container_server
+# Runs via Docker (molecule-plugins[docker]); no external dependencies per design.
+
+driver:
+  name: default
+platforms:
+  - name: instance
+provisioner:
+  name: ansible
+verifier:
+  name: ansible

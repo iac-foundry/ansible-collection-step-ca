@@ -1,0 +1,30 @@
+# Ansible
+*.pyc
+__pycache__/
+*.egg-info/
+dist/
+build/
+*.egg
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Molecule & testing
+molecule/**/.molecule
+.molecule/
+molecule/**/*.log
+molecule/**/inventory/
+molecule/**/*.retry
+
+# Ansible temp
+.ansible/roles/
+*.retry
+
+# Temporary files
+*.tmp
+*.bak

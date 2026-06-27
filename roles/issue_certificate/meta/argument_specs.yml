@@ -1,0 +1,55 @@
+---
+argument_specs:
+  main:
+    short_description: "Request a leaf TLS certificate from a running step-ca instance."
+    description: |
+      Request a single leaf certificate from an already-running step-ca instance, given caller-
+      supplied CN/SANs. Returns the signed cert, key, and chain as facts; optionally writes them
+      to caller-supplied paths on the target host.
+      See the design document for architecture and assumptions.
+    options:
+      step_ca_issue_ca_url:
+        type: str
+        required: true
+        description: "HTTPS URL to the step-ca CA API. Example: 'https://step-ca.local:443'"
+
+      step_ca_issue_ca_fingerprint:
+        type: str
+        required: true
+        description: "SHA-256 fingerprint of the step-ca root certificate. Used for TOFU (trust-on-first-use) client bootstrap. Public, not secret."
+
+      step_ca_issue_provisioner_password:
+        type: str
+        required: true
+        description: "Secret password for the JWK provisioner. Caller-supplied; fail-fast if missing. Mark as no_log in playbooks."
+
+      step_ca_issue_certificate_common_name:
+        type: str
+        required: true
+        description: "Common Name (CN) for the leaf certificate. Example: 'vault.local' or 'service.example.com'"
+
+      step_ca_issue_certificate_subject_alt_names:
+        type: list
+        elements: str
+        default: []
+        description: "List of Subject Alternative Names (SANs) for the leaf certificate. Example: ['vault.local', 'vault.example.com', '10.0.1.10']"
+
+      step_ca_issue_certificate_validity_days:
+        type: int
+        default: 30
+        description: "Validity period in days for the issued certificate. Default 30 per Design Decision 3 (forces deliberate renewal). Caller-overridable."
+
+      step_ca_issue_certificate_output_cert_path:
+        type: str
+        default: ""
+        description: "Optional: write the certificate to this path on the target host. If empty, cert is returned only as a fact (no_log)."
+
+      step_ca_issue_certificate_output_key_path:
+        type: str
+        default: ""
+        description: "Optional: write the private key to this path on the target host. If empty, key is returned only as a fact (no_log)."
+
+      step_ca_issue_certificate_output_chain_path:
+        type: str
+        default: ""
+        description: "Optional: write the certificate chain (root only, no intermediate) to this path. If empty, returned only as a fact (not secret)."

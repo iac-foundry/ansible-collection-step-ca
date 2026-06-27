@@ -1,0 +1,110 @@
+---
+# issue_certificate: Request a leaf certificate from a running step-ca instance.
+#
+# Responsibilities (per design):
+#   1. Validate caller-supplied CN/SANs, provisioner password, CA URL, and fingerprint are present
+#   2. Request a leaf certificate via step CLI or REST API (/1.0/sign endpoint)
+#   3. Return cert, key, and chain as Ansible facts (no_log on secret material)
+#   4. Return cert-expiry facts: step_ca_issue_certificate_not_after and _days_remaining (public, not secret)
+#   5. Optionally write cert/key/chain to caller-supplied paths (consumer's choice)
+#
+# Constraints:
+#   - Fail-fast asserts on required inputs before any API call
+#   - No_log on provisioner password and issued private key
+#   - Single issuance per invocation (no retry-as-secret-bypass, no silent fallback)
+#   - No include_role / import_role of other blueprints.* collections
+#   - All inputs from caller-supplied variables; no external discovery or retrieval
+#   - No hardcoded CA hostnames or provisioner configuration
+
+- name: Assert required inputs are supplied by the caller
+  ansible.builtin.assert:
+    that:
+      - step_ca_issue_ca_url | length > 0
+      - step_ca_issue_ca_fingerprint | length > 0
+      - step_ca_issue_provisioner_password | length > 0
+      - step_ca_issue_certificate_common_name | length > 0
+    fail_msg: |
+      Required inputs missing for certificate issuance:
+        - step_ca_issue_ca_url: HTTPS URL to the step-ca CA API (e.g. 'https://step-ca.local:443')
+        - step_ca_issue_ca_fingerprint: SHA-256 fingerprint of the root certificate (for TOFU bootstrap)
+        - step_ca_issue_provisioner_password: Secret password for the JWK provisioner
+        - step_ca_issue_certificate_common_name: CN for the leaf certificate (e.g. 'vault.local')
+    success_msg: "Required inputs present (CA URL + fingerprint + provisioner password + CN)."
+  tags:
+    - issue_certificate
+
+- name: Validate SANs format (must be a list)
+  ansible.builtin.assert:
+    that:
+      - step_ca_issue_certificate_subject_alt_names is defined
+      - step_ca_issue_certificate_subject_alt_names is iterable
+    fail_msg: "step_ca_issue_certificate_subject_alt_names must be a list (can be empty)."
+  tags:
+    - issue_certificate
+
+- name: Scaffold CA connectivity check
+  ansible.builtin.debug:
+    msg: |
+      CA connectivity placeholder (Stage 7 implementation):
+        - Test HTTPS connectivity to {{ step_ca_issue_ca_url }}
+        - Verify fingerprint {{ step_ca_issue_ca_fingerprint }} matches the root cert
+        - Use ansible.builtin.uri or step CLI with --ca-fingerprint for TOFU bootstrap
+  tags:
+    - issue_certificate
+
+- name: Scaffold leaf certificate issuance request
+  ansible.builtin.debug:
+    msg: |
+      Leaf certificate issuance placeholder (Stage 7 implementation — step CLI or uri module):
+        - Common Name (CN): {{ step_ca_issue_certificate_common_name }}
+        - Subject Alternative Names (SANs): {{ step_ca_issue_certificate_subject_alt_names }}
+        - Validity period: {{ step_ca_issue_certificate_validity_days }} days
+        - Provisioner: JWK (password-protected)
+        - API endpoint: {{ step_ca_issue_ca_url }}/1.0/sign
+        - Authentication: provisioner JOSE-signed token + password
+        - Return values:
+          * Certificate (PEM): register as step_ca_issue_certificate_pem (no_log: true)
+          * Private key (PEM): register as step_ca_issue_certificate_key_pem (no_log: true)
+          * Chain (PEM): register as step_ca_issue_certificate_chain_pem (root only, not secret)
+  no_log: true
+  tags:
+    - issue_certificate
+
+- name: Scaffold certificate expiry fact extraction
+  ansible.builtin.debug:
+    msg: |
+      Certificate expiry placeholder (Stage 7 implementation):
+        - Parse the issued certificate to extract Not After timestamp
+        - Register step_ca_issue_certificate_not_after: ISO8601 timestamp (public, not secret)
+        - Register step_ca_issue_certificate_days_remaining: integer day count at issuance (public)
+        - Both facts available for platform-layer monitoring/alerting without parsing cert files
+  tags:
+    - issue_certificate
+
+- name: Scaffold optional output file writes
+  ansible.builtin.debug:
+    msg: |
+      Optional output file write placeholder (Stage 7 implementation):
+        - If step_ca_issue_certificate_output_cert_path is set: write cert to path (mode 0644)
+        - If step_ca_issue_certificate_output_key_path is set: write key to path (mode 0600)
+        - If step_ca_issue_certificate_output_chain_path is set: write chain to path (mode 0644)
+        - If any output path is empty: return as fact only (no_log on key)
+        - Skip writes if paths are not set (consumer's choice)
+  tags:
+    - issue_certificate
+
+- name: Convergence complete
+  ansible.builtin.debug:
+    msg: |
+      [SCAFFOLD] issue_certificate: Stage 7 implementation pending.
+      Framework installed; structure ready for task implementation.
+
+      Next steps:
+        1. Implement assert blocks ✓ (placeholder ready)
+        2. Test CA connectivity (Stage 7)
+        3. Request leaf certificate via step CLI or uri module (Stage 7)
+        4. Parse certificate and extract expiry facts (Stage 7)
+        5. Optionally write output files (Stage 7)
+        6. Return all facts to the platform layer (Stage 7)
+  tags:
+    - issue_certificate

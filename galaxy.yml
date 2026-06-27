@@ -1,0 +1,19 @@
+---
+namespace: blueprints
+name: step_ca
+version: 0.1.0
+authors:
+  - Platform Engineering <platform@vernify.com>
+description: Smallstep step-ca PKI installation and configuration for internal TLS issuance
+license:
+  - MIT
+repository: https://github.com/iac-foundry/ansible-collection-step-ca
+documentation: https://github.com/iac-foundry/ansible-collection-step-ca
+issues: https://github.com/iac-foundry/ansible-collection-step-ca/issues
+dependencies:
+  # No cross-collection dependencies per BLUEPRINTS_DESIGN_PRINCIPLES.md
+tags:
+  - pki
+  - ca
+  - tls
+  - certificate-authority

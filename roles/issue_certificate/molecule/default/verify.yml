@@ -1,0 +1,41 @@
+---
+# Molecule verify playbook for blueprints.step_ca.issue_certificate
+# Validates structural correctness and fact outputs.
+
+- name: Verify
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Verify certificate facts are set
+      ansible.builtin.assert:
+        that:
+          - step_ca_issue_certificate_pem is defined
+          - step_ca_issue_certificate_key_pem is defined
+          - step_ca_issue_certificate_chain_pem is defined
+        fail_msg: "Issue_certificate must set certificate, key, and chain facts"
+      tags:
+        - verify
+
+    - name: Verify expiry facts are set
+      ansible.builtin.assert:
+        that:
+          - step_ca_issue_certificate_not_after is defined
+          - step_ca_issue_certificate_days_remaining is defined
+        fail_msg: "Issue_certificate must set expiry facts (not_after and days_remaining)"
+      tags:
+        - verify
+
+    - name: Verify days_remaining is a positive integer
+      ansible.builtin.assert:
+        that:
+          - step_ca_issue_certificate_days_remaining is number
+          - step_ca_issue_certificate_days_remaining | int > 0
+        fail_msg: "Days_remaining must be a positive integer"
+      tags:
+        - verify
+
+    - name: Verify idempotence on second converge
+      ansible.builtin.debug:
+        msg: "Second converge may issue a new certificate (each converge is a fresh issuance). Verified by molecule's own idempotence check."
+      tags:
+        - verify

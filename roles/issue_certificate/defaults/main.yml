@@ -1,0 +1,15 @@
+---
+# issue_certificate: Request a leaf certificate from a running step-ca instance.
+# Variables follow the step_ca_issue_* prefix per BLUEPRINTS_VARIABLE_STANDARDS.md §1.
+
+step_ca_issue_ca_url: ""                                    # REQUIRED: CA HTTPS endpoint
+step_ca_issue_ca_fingerprint: ""                            # REQUIRED: root cert fingerprint (TOFU)
+step_ca_issue_provisioner_password: ""                      # REQUIRED: provisioner secret; fail-fast if missing
+step_ca_issue_certificate_common_name: ""                  # REQUIRED: CN for the leaf cert
+step_ca_issue_certificate_subject_alt_names: []            # Optional: list of SANs
+step_ca_issue_certificate_validity_days: 30                # Default 30 per Decision 3 (forces renewal)
+
+# Optional output paths: if set, cert/key/chain are written to these paths on the target host
+step_ca_issue_certificate_output_cert_path: ""
+step_ca_issue_certificate_output_key_path: ""
+step_ca_issue_certificate_output_chain_path: ""

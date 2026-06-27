@@ -1,0 +1,11 @@
+---
+profile: production
+exclude_paths:
+  - molecule/
+  - .github/
+skip_list:
+  # Variables use a component-wide prefix (e.g. step_ca_server_*) so that the
+  # container_server / systemd_server / kubernetes_server roles share ONE caller
+  # interface (docs/standards/BLUEPRINTS_VARIABLE_STANDARDS.md §5). That is an
+  # intentional, documented divergence from the per-role prefix rule.
+  - var-naming[no-role-prefix]

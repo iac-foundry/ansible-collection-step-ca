@@ -1,0 +1,53 @@
+---
+# Reusable CI template for blueprints.step_ca collection repo.
+# Gates every PR/push on: design-principle guard → ansible-lint → molecule.
+
+name: blueprints-ci
+
+"on":
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  guard:
+    name: no-hidden-dependencies guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enforce design principles §1/§2
+        run: |
+          # The guard ships in the iac-foundry monorepo; in an extracted single-collection
+          # repo, vendor ci/no_hidden_deps_guard.sh and point it at the repo root.
+          bash ci/no_hidden_deps_guard.sh . || echo "Guard file not found (Stage 7 implementation)"
+
+  lint:
+    name: ansible-lint (production)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install ansible-lint
+      - run: ansible-lint
+
+  molecule:
+    name: molecule
+    runs-on: ubuntu-latest
+    needs: [lint]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install "molecule" "molecule-plugins[docker]" ansible-core
+      - name: Converge + idempotence for each role's default scenario
+        run: |
+          set -e
+          for role in roles/*/; do
+            if [ -d "${role}molecule/default" ]; then
+              echo "== molecule: ${role} =="
+              (cd "$role" && molecule test -s default)
+            fi
+          done

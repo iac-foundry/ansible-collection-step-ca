@@ -1,0 +1,31 @@
+---
+# Molecule converge playbook for blueprints.step_ca.issue_certificate
+# Tests the happy path (all inputs supplied) and idempotence on second converge.
+
+- name: Converge
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Include blueprints.step_ca.issue_certificate with caller-supplied variables
+      ansible.builtin.include_role:
+        name: blueprints.step_ca.issue_certificate
+      vars:
+        step_ca_issue_ca_url: "https://step-ca.local:443"
+        step_ca_issue_ca_fingerprint: "abcd1234567890abcdef"  # fixture value
+        step_ca_issue_provisioner_password: "test-provisioner-password"
+        step_ca_issue_certificate_common_name: "vault.local"
+        step_ca_issue_certificate_subject_alt_names:
+          - vault.local
+          - vault.example.com
+        step_ca_issue_certificate_validity_days: 30
+
+    - name: Debug - issue_certificate outputs
+      ansible.builtin.debug:
+        msg: |
+          Outputs from issue_certificate:
+            Cert (first 100 chars): {{ (step_ca_issue_certificate_pem | default('NOT SET'))[:100] }}
+            Key present: {{ step_ca_issue_certificate_key_pem is defined }}
+            Chain (first 100 chars): {{ (step_ca_issue_certificate_chain_pem | default('NOT SET'))[:100] }}
+            Not After: {{ step_ca_issue_certificate_not_after | default('NOT SET') }}
+            Days remaining: {{ step_ca_issue_certificate_days_remaining | default('NOT SET') }}
+      when: step_ca_issue_certificate_pem is defined or step_ca_issue_certificate_not_after is defined

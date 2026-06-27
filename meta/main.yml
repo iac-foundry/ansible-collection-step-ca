@@ -1,0 +1,7 @@
+---
+# Collection-level metadata
+# Per BLUEPRINTS_COLLECTION_STRUCTURE.md, this collection has no dependencies.
+# Role-level dependencies are declared in each role's meta/main.yml.
+
+collection_name: blueprints.step_ca
+version: 0.1.0

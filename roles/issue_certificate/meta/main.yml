@@ -1,0 +1,25 @@
+---
+galaxy_info:
+  role_name: issue_certificate
+  author: Platform Engineering
+  description: "Request a leaf TLS certificate from a running step-ca instance."
+  license: MIT
+  min_ansible_version: "2.16"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - jammy
+        - noble
+    - name: Debian
+      versions:
+        - bookworm
+    - name: EL
+      versions:
+        - "9"
+  galaxy_tags:
+    - blueprints
+    - step-ca
+    - pki
+    - tls
+    - certificate
+dependencies: []

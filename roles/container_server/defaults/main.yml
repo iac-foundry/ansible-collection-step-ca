@@ -1,0 +1,18 @@
+---
+# Common deployment-model interface — identical across container_server / systemd_server
+# (when systemd_server is implemented) so callers can switch models without renaming variables
+# (BLUEPRINTS_VARIABLE_STANDARDS.md §5, BLUEPRINTS_DESIGN_PRINCIPLES.md §6).
+
+step_ca_server_image: ""                               # REQUIRED: caller-supplied image ref; no org default
+step_ca_server_https_port: 443
+step_ca_server_data_dir: "/var/lib/step-ca"
+step_ca_server_provisioner_password: ""                # REQUIRED: caller-supplied secret; fail-fast if missing
+step_ca_server_service_user: "step-ca"
+step_ca_server_service_group: "step-ca"
+step_ca_server_container_name: "step-ca"
+step_ca_server_log_level: "info"
+
+# Root CA certificate naming/identity (optional, sensible generic defaults per §4 of variable standards)
+step_ca_server_root_ca_name: "Blueprints Root CA"
+step_ca_server_root_ca_cn: "step-ca.local"
+step_ca_server_root_ca_organization: "Blueprints"

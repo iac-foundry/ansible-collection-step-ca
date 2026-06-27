@@ -1,0 +1,63 @@
+---
+argument_specs:
+  main:
+    short_description: "Run Smallstep step-ca as a container (root CA + provisioner)."
+    description: |
+      Initialize a single-tier step-ca root CA and run it as a container, exposing the CA's
+      HTTPS API and at least one authorized provisioner (JWK, password-protected).
+      See the design document for architecture and assumptions.
+    options:
+      step_ca_server_image:
+        type: str
+        required: true
+        description: "Smallstep step-ca container image reference (caller-supplied; no org default). Example: 'smallstep/step-ca:0.27.0'"
+
+      step_ca_server_https_port:
+        type: int
+        default: 443
+        description: "HTTPS port for the CA API. Must be reachable by issue_certificate role."
+
+      step_ca_server_data_dir:
+        type: str
+        default: "/var/lib/step-ca"
+        description: "Persistent data directory for root key/cert and provisioner config. Bind-mounted into the container. Must be durable across container restart."
+
+      step_ca_server_provisioner_password:
+        type: str
+        required: true
+        description: "Secret password for the default JWK provisioner. Caller-supplied; fail-fast if missing. Mark as no_log in playbooks."
+
+      step_ca_server_service_user:
+        type: str
+        default: "step-ca"
+        description: "System user to own the data directory and run the container as (if base image supports unprivileged mode)."
+
+      step_ca_server_service_group:
+        type: str
+        default: "step-ca"
+        description: "System group for the data directory and service user."
+
+      step_ca_server_container_name:
+        type: str
+        default: "step-ca"
+        description: "Name of the running container."
+
+      step_ca_server_log_level:
+        type: str
+        default: "info"
+        description: "Logging level for step-ca (debug, info, warn, error). Optional."
+
+      step_ca_server_root_ca_name:
+        type: str
+        default: "Blueprints Root CA"
+        description: "Human-readable name for the root CA certificate. Used in root cert generation. Optional."
+
+      step_ca_server_root_ca_cn:
+        type: str
+        default: "step-ca.local"
+        description: "Common Name for the root CA certificate. Optional."
+
+      step_ca_server_root_ca_organization:
+        type: str
+        default: "Blueprints"
+        description: "Organization name in root CA certificate. Optional."

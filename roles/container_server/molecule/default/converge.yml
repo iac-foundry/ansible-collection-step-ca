@@ -1,0 +1,24 @@
+---
+# Molecule converge playbook for blueprints.step_ca.container_server
+# Tests both the happy path (all inputs supplied) and idempotence on second converge.
+
+- name: Converge
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Include blueprints.step_ca.container_server with caller-supplied variables
+      ansible.builtin.include_role:
+        name: blueprints.step_ca.container_server
+      vars:
+        step_ca_server_image: "smallstep/step-ca:0.27.0"  # pinned tag per Decision 2
+        step_ca_server_provisioner_password: "test-provisioner-password"  # fixture value
+        step_ca_server_https_port: 443
+        step_ca_server_data_dir: "/var/lib/step-ca"
+
+    - name: Debug - container_server outputs
+      ansible.builtin.debug:
+        msg: |
+          Outputs from container_server:
+            Root CA cert (first 100 chars): {{ (step_ca_server_root_ca_cert | default('NOT SET'))[:100] }}
+            CA fingerprint: {{ step_ca_server_ca_fingerprint | default('NOT SET') }}
+      when: step_ca_server_root_ca_cert is defined or step_ca_server_ca_fingerprint is defined

@@ -1,0 +1,49 @@
+---
+# Molecule verify playbook for blueprints.step_ca.container_server
+# Validates structural correctness and idempotence.
+
+- name: Verify
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Assert service user exists
+      ansible.builtin.user:
+        name: step-ca
+        state: present
+      register: user_check
+      check_mode: true
+      failed_when: user_check is changed
+      tags:
+        - verify
+
+    - name: Assert data directory exists with correct permissions
+      ansible.builtin.stat:
+        path: /var/lib/step-ca
+      register: data_dir_stat
+      failed_when: not data_dir_stat.stat.exists or data_dir_stat.stat.mode != '0700'
+      tags:
+        - verify
+
+    - name: Assert data directory is owned by step-ca user
+      ansible.builtin.assert:
+        that:
+          - data_dir_stat.stat.pw_name == 'step-ca'
+          - data_dir_stat.stat.gr_name == 'step-ca'
+        fail_msg: "Data directory must be owned by step-ca:step-ca"
+      tags:
+        - verify
+
+    - name: Verify facts are set
+      ansible.builtin.assert:
+        that:
+          - step_ca_server_root_ca_cert is defined
+          - step_ca_server_ca_fingerprint is defined
+        fail_msg: "Container_server must set step_ca_server_root_ca_cert and step_ca_server_ca_fingerprint facts"
+      tags:
+        - verify
+
+    - name: Verify idempotence on second converge
+      ansible.builtin.debug:
+        msg: "Second converge must report zero changes (verified by molecule's own idempotence check)"
+      tags:
+        - verify
