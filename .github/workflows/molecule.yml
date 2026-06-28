@@ -2,7 +2,6 @@ name: Molecule Tests
 
 on:
   push:
-    branches: [main, develop]
     paths:
       - 'roles/**'
       - '.github/workflows/molecule.yml'
