@@ -32,9 +32,19 @@
   tags:
     - container_server
 
+- name: Ensure service group exists
+  ansible.builtin.group:
+    name: "{{ step_ca_server_service_group }}"
+    gid: "{{ step_ca_server_gid }}"
+    system: true
+    state: present
+  tags:
+    - container_server
+
 - name: Ensure service user exists
   ansible.builtin.user:
     name: "{{ step_ca_server_service_user }}"
+    uid: "{{ step_ca_server_uid }}"
     group: "{{ step_ca_server_service_group }}"
     system: true
     shell: /usr/sbin/nologin
@@ -106,6 +116,9 @@
     image: "{{ step_ca_server_image }}"
     state: started
     restart_policy: unless-stopped
+    user: "{{ step_ca_server_uid }}:{{ step_ca_server_gid }}"
+    cap_drop:
+      - ALL
     ports:
       - "{{ step_ca_server_https_port }}:443"
     volumes:
