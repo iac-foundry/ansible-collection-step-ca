@@ -1,0 +1,25 @@
+name: Ansible Lint
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'roles/**'
+      - '.github/workflows/ansible-lint.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'roles/**'
+      - '.github/workflows/ansible-lint.yml'
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Ansible Lint
+        uses: ansible/ansible-lint@v6
+        with:
+          args: "roles/"

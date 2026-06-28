@@ -1,0 +1,41 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    - cron: '0 2 * * 0'  # Weekly on Sunday at 2 AM UTC
+
+jobs:
+  ansible-syntax:
+    name: Ansible Syntax Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install Ansible
+        run: pip install ansible
+
+      - name: Run Ansible Syntax Check
+        run: |
+          find roles/ -name "*.yml" -o -name "*.yaml" | xargs -I {} bash -c 'echo "Checking {}" && ansible-playbook --syntax-check {} || exit 1'
+
+  ansible-lint-security:
+    name: Ansible Lint Security
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Ansible Lint
+        uses: ansible/ansible-lint@v6
+        with:
+          args: "roles/ --strict"
