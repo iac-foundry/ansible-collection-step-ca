@@ -9,6 +9,8 @@ step_ca_server_data_dir: "/var/lib/step-ca"
 step_ca_server_provisioner_password: ""                # REQUIRED: caller-supplied secret; fail-fast if missing
 step_ca_server_service_user: "step-ca"
 step_ca_server_service_group: "step-ca"
+step_ca_server_uid: 999                                # fixed UID for the host-side service user; passed to docker_container's user: param (LADR-009)
+step_ca_server_gid: 999                                # fixed GID for the host-side service group; passed to docker_container's user: param (LADR-009)
 step_ca_server_container_name: "step-ca"
 step_ca_server_log_level: "info"
 
