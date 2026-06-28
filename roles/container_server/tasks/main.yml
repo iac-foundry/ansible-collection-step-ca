@@ -28,6 +28,7 @@
         - step_ca_server_image: Container image reference (caller-supplied; no org default). Example: 'smallstep/step-ca:0.27.0'
         - step_ca_server_provisioner_password: Secret password for the default JWK provisioner (fail-fast if missing).
     success_msg: "Required inputs present (image + provisioner password)."
+  no_log: false
   tags:
     - container_server
 
@@ -52,81 +53,103 @@
   tags:
     - container_server
 
-- name: Scaffold ca.json configuration
-  ansible.builtin.debug:
-    msg: |
-      ca.json configuration template (Stage 7 placeholder):
-        Root CA Name: {{ step_ca_server_root_ca_name }}
-        Root CA CN: {{ step_ca_server_root_ca_cn }}
-        Organization: {{ step_ca_server_root_ca_organization }}
-        Data directory: {{ step_ca_server_data_dir }}
-        Service user/group: {{ step_ca_server_service_user }}:{{ step_ca_server_service_group }}
-        HTTPS port: {{ step_ca_server_https_port }}
-        Log level: {{ step_ca_server_log_level }}
-        Container name: {{ step_ca_server_container_name }}
+- name: Check if root CA certificate already exists (idempotence check)
+  ansible.builtin.stat:
+    path: "{{ step_ca_server_data_dir }}/root_ca.crt"
+  register: root_ca_cert_stat
   tags:
     - container_server
 
-- name: Scaffold root key/cert generation
-  ansible.builtin.debug:
-    msg: |
-      Root key/cert generation placeholder (Stage 7 implementation):
-        - Check if root already exists at {{ step_ca_server_data_dir }}/root_ca.crt
-        - If not: generate via step CLI or OpenSSL (caller can also supply pre-generated pair via FR-1)
-        - Store key at {{ step_ca_server_data_dir }}/root_ca.key (mode 0600, owned by {{ step_ca_server_service_user }})
-        - Store cert at {{ step_ca_server_data_dir }}/root_ca.crt (world-readable)
+- name: Generate root CA key and certificate (if not already present)
+  ansible.builtin.shell: |
+    set -e
+    openssl req -new -x509 -days 3650 -nodes \
+      -out "{{ step_ca_server_data_dir }}/root_ca.crt" \
+      -keyout "{{ step_ca_server_data_dir }}/root_ca.key" \
+      -subj "/C=US/ST=State/L=City/O={{ step_ca_server_root_ca_organization }}/CN={{ step_ca_server_root_ca_cn }}"
+    chmod 600 "{{ step_ca_server_data_dir }}/root_ca.key"
+    chmod 644 "{{ step_ca_server_data_dir }}/root_ca.crt"
+  when: not root_ca_cert_stat.stat.exists
+  changed_when: not root_ca_cert_stat.stat.exists
   tags:
     - container_server
 
-- name: Scaffold provisioner configuration
-  ansible.builtin.debug:
-    msg: |
-      Provisioner configuration placeholder (Stage 7 implementation):
-        - Render provisioner block in ca.json using the provisioner password
-        - Provisioner type: JWK (password-protected)
-        - Password supplied: yes (no_log: true during actual task)
-        - Additional provisioners via caller-supplied list (FR-2): not yet implemented
+
+- name: Check if ca.json already exists
+  ansible.builtin.stat:
+    path: "{{ step_ca_server_data_dir }}/ca.json"
+  register: ca_json_stat
+  tags:
+    - container_server
+
+- name: Generate bcrypt hash of provisioner password
+  ansible.builtin.set_fact:
+    _provisioner_password_hash: "{{ step_ca_server_provisioner_password | password_hash('bcrypt') }}"
   no_log: true
   tags:
     - container_server
 
-- name: Scaffold container lifecycle management
-  ansible.builtin.debug:
-    msg: |
-      Container lifecycle placeholder (Stage 7 implementation — community.docker.docker_container):
-        - Task name: "Start/restart step-ca container"
-        - Image: {{ step_ca_server_image }}
-        - Container name: {{ step_ca_server_container_name }}
-        - Bind mount: {{ step_ca_server_data_dir }}:/home/step (or appropriate step-ca data mount point)
-        - Publish port: {{ step_ca_server_https_port }}:443 (container -> host)
-        - User: {{ step_ca_server_service_user }} (if base image supports unprivileged mode)
-        - State: started (declarative, idempotent)
-        - Restart policy: unless-stopped
+- name: Render ca.json configuration from template
+  ansible.builtin.template:
+    src: ca.json.j2
+    dest: "{{ step_ca_server_data_dir }}/ca.json"
+    owner: "{{ step_ca_server_service_user }}"
+    group: "{{ step_ca_server_service_group }}"
+    mode: "0600"
+  no_log: true
   tags:
     - container_server
 
-- name: Scaffold root cert fact exposure
-  ansible.builtin.debug:
-    msg: |
-      Root cert fact exposure placeholder (Stage 7 implementation):
-        - Register step_ca_server_root_ca_cert: contents of {{ step_ca_server_data_dir }}/root_ca.crt (PEM)
-        - Register step_ca_server_ca_fingerprint: extracted from cert (public, not secret, use in TOFU bootstrap)
-        - Both facts returned to the caller for platform-layer consumption
+- name: Start/restart step-ca container
+  community.docker.docker_container:
+    name: "{{ step_ca_server_container_name }}"
+    image: "{{ step_ca_server_image }}"
+    state: started
+    restart_policy: unless-stopped
+    ports:
+      - "{{ step_ca_server_https_port }}:443"
+    volumes:
+      - "{{ step_ca_server_data_dir }}:/home/step"
+    env:
+      STEP_CA_USE_DEFAULT_TLS: "false"
   tags:
     - container_server
 
-- name: Convergence complete
+- name: Read root CA certificate into fact
+  ansible.builtin.slurp:
+    src: "{{ step_ca_server_data_dir }}/root_ca.crt"
+  register: root_ca_cert_content
+  tags:
+    - container_server
+
+- name: Set step_ca_server_root_ca_cert fact
+  ansible.builtin.set_fact:
+    step_ca_server_root_ca_cert: "{{ root_ca_cert_content.content | b64decode }}"
+  tags:
+    - container_server
+
+- name: Extract CA fingerprint (SHA-256)
+  ansible.builtin.shell: |
+    set -o pipefail
+    openssl x509 -in "{{ step_ca_server_data_dir }}/root_ca.crt" \
+      -noout -fingerprint -sha256 | cut -d= -f2
+  register: ca_fingerprint_output
+  changed_when: false
+  tags:
+    - container_server
+
+- name: Set step_ca_server_ca_fingerprint fact
+  ansible.builtin.set_fact:
+    step_ca_server_ca_fingerprint: "{{ ca_fingerprint_output.stdout }}"
+  tags:
+    - container_server
+
+- name: Container server convergence complete
   ansible.builtin.debug:
     msg: |
-      [SCAFFOLD] container_server: Stage 7 implementation pending.
-      Framework installed; structure ready for task implementation.
-
-      Next steps:
-        1. Implement assert blocks ✓ (placeholder ready)
-        2. Render ca.json template (Stage 7)
-        3. Generate/accept root key/cert (Stage 7, FR-1 path included)
-        4. Configure JWK provisioner (Stage 7)
-        5. Deploy container via community.docker (Stage 7)
-        6. Expose root cert + fingerprint as facts (Stage 7)
+      container_server role complete.
+      Root CA initialized, container running, facts exposed to caller.
+        - step_ca_server_root_ca_cert: Root CA certificate (PEM)
+        - step_ca_server_ca_fingerprint: SHA-256 fingerprint (TOFU bootstrap)
   tags:
     - container_server
