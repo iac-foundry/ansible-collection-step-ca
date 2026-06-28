@@ -1,0 +1,76 @@
+{
+  "root": "/home/step/root_ca.crt",
+  "federated_roots": [],
+  "crt": "/home/step/root_ca.crt",
+  "key": "/home/step/root_ca.key",
+  "db": {
+    "type": "badgerV2",
+    "dataSource": "/home/step/db"
+  },
+  "logger": {
+    "format": "json"
+  },
+  "api": {
+    "address": "0.0.0.0:443",
+    "serveUnderscores": false,
+    "corsAllowedOrigins": []
+  },
+  "monitoring": {
+    "metrics": {
+      "prometheus": {
+        "enabled": false
+      }
+    }
+  },
+  "authority": {
+    "provisioners": [
+      {
+        "type": "jwk",
+        "name": "provisioner",
+        "key": {
+          "use": "sig",
+          "kty": "EC",
+          "kid": "provisioner",
+          "crv": "P-256",
+          "alg": "ES256",
+          "x": "WKn-ZIGevcwGIyyrzFoZNBdaq9_TsqzGl96oc9LCLF4",
+          "y": "y77t-RvAHRKTsSGdIYUfweuOvwrvDD-Q3Hv5J0fSKcE",
+          "d": "Hndv23pqp_nsTmQtfQcpasvMSywlmgf2esDKwLWe3_4"
+        },
+        "encryptedKey": "",
+        "claims": {
+          "minTLSDur": 5,
+          "maxTLSDur": 2160,
+          "defaultTLSDur": 2160,
+          "disableRenewal": false,
+          "disableSmallstepExtensions": false,
+          "x509": {
+            "enabled": true,
+            "interpolateropolitanNames": true
+          },
+          "ssh": {
+            "enabled": false
+          }
+        },
+        "options": {
+          "x509": {
+            "templateFile": ""
+          },
+          "ssh": {
+            "templateFile": ""
+          }
+        },
+        "passwordHash": "{{ _provisioner_password_hash }}"
+      }
+    ]
+  },
+  "tls": {
+    "cipherSuites": [
+      "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+      "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"
+    ],
+    "minVersion": 1.2,
+    "maxVersion": 1.3,
+    "renegotiation": false
+  }
+}

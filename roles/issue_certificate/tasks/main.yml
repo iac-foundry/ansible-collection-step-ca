@@ -3,9 +3,9 @@
 #
 # Responsibilities (per design):
 #   1. Validate caller-supplied CN/SANs, provisioner password, CA URL, and fingerprint are present
-#   2. Request a leaf certificate via step CLI or REST API (/1.0/sign endpoint)
+#   2. Request a leaf certificate via step CLI
 #   3. Return cert, key, and chain as Ansible facts (no_log on secret material)
-#   4. Return cert-expiry facts: step_ca_issue_certificate_not_after and _days_remaining (public, not secret)
+#   4. Return cert-expiry facts: step_ca_issue_certificate_not_after and _days_remaining (public)
 #   5. Optionally write cert/key/chain to caller-supplied paths (consumer's choice)
 #
 # Constraints:
@@ -30,6 +30,7 @@
         - step_ca_issue_provisioner_password: Secret password for the JWK provisioner
         - step_ca_issue_certificate_common_name: CN for the leaf certificate (e.g. 'vault.local')
     success_msg: "Required inputs present (CA URL + fingerprint + provisioner password + CN)."
+  no_log: false
   tags:
     - issue_certificate
 
@@ -42,69 +43,138 @@
   tags:
     - issue_certificate
 
-- name: Scaffold CA connectivity check
-  ansible.builtin.debug:
-    msg: |
-      CA connectivity placeholder (Stage 7 implementation):
-        - Test HTTPS connectivity to {{ step_ca_issue_ca_url }}
-        - Verify fingerprint {{ step_ca_issue_ca_fingerprint }} matches the root cert
-        - Use ansible.builtin.uri or step CLI with --ca-fingerprint for TOFU bootstrap
+- name: Test CA connectivity via health endpoint
+  ansible.builtin.uri:
+    url: "{{ step_ca_issue_ca_url }}/health"
+    method: GET
+    validate_certs: false
+    ca_path: "/etc/ssl/certs/ca-certificates.crt"
+  register: ca_health_check
   tags:
     - issue_certificate
 
-- name: Scaffold leaf certificate issuance request
-  ansible.builtin.debug:
-    msg: |
-      Leaf certificate issuance placeholder (Stage 7 implementation — step CLI or uri module):
-        - Common Name (CN): {{ step_ca_issue_certificate_common_name }}
-        - Subject Alternative Names (SANs): {{ step_ca_issue_certificate_subject_alt_names }}
-        - Validity period: {{ step_ca_issue_certificate_validity_days }} days
-        - Provisioner: JWK (password-protected)
-        - API endpoint: {{ step_ca_issue_ca_url }}/1.0/sign
-        - Authentication: provisioner JOSE-signed token + password
-        - Return values:
-          * Certificate (PEM): register as step_ca_issue_certificate_pem (no_log: true)
-          * Private key (PEM): register as step_ca_issue_certificate_key_pem (no_log: true)
-          * Chain (PEM): register as step_ca_issue_certificate_chain_pem (root only, not secret)
+- name: Create temporary directory for certificate generation
+  ansible.builtin.tempfile:
+    state: directory
+    suffix: _step_ca
+  register: temp_cert_dir
+  tags:
+    - issue_certificate
+
+- name: Issue leaf certificate from step-ca
+  ansible.builtin.shell: |
+    set -o pipefail
+    export LC_ALL=C.UTF-8
+    step ca certificate \
+      --ca-url "{{ step_ca_issue_ca_url }}" \
+      --ca-fingerprint "{{ step_ca_issue_ca_fingerprint }}" \
+      --provisioner-password-file=/dev/stdin \
+      --not-after "{{ step_ca_issue_certificate_validity_days }}h" \
+      {% for san in step_ca_issue_certificate_subject_alt_names %}\
+      --set-san "{{ san }}" \
+      {% endfor %}\
+      "{{ step_ca_issue_certificate_common_name }}" \
+      "{{ temp_cert_dir.path }}/cert.pem" \
+      "{{ temp_cert_dir.path }}/key.pem"
+  args:
+    stdin: "{{ step_ca_issue_provisioner_password }}"
+  no_log: true
+  changed_when: true
+  tags:
+    - issue_certificate
+
+- name: Read issued certificate
+  ansible.builtin.slurp:
+    src: "{{ temp_cert_dir.path }}/cert.pem"
+  register: cert_content
+  tags:
+    - issue_certificate
+
+- name: Read issued private key
+  ansible.builtin.slurp:
+    src: "{{ temp_cert_dir.path }}/key.pem"
+  register: key_content
   no_log: true
   tags:
     - issue_certificate
 
-- name: Scaffold certificate expiry fact extraction
-  ansible.builtin.debug:
-    msg: |
-      Certificate expiry placeholder (Stage 7 implementation):
-        - Parse the issued certificate to extract Not After timestamp
-        - Register step_ca_issue_certificate_not_after: ISO8601 timestamp (public, not secret)
-        - Register step_ca_issue_certificate_days_remaining: integer day count at issuance (public)
-        - Both facts available for platform-layer monitoring/alerting without parsing cert files
+- name: Set certificate fact
+  ansible.builtin.set_fact:
+    step_ca_issue_certificate_pem: "{{ cert_content.content | b64decode }}"
   tags:
     - issue_certificate
 
-- name: Scaffold optional output file writes
-  ansible.builtin.debug:
-    msg: |
-      Optional output file write placeholder (Stage 7 implementation):
-        - If step_ca_issue_certificate_output_cert_path is set: write cert to path (mode 0644)
-        - If step_ca_issue_certificate_output_key_path is set: write key to path (mode 0600)
-        - If step_ca_issue_certificate_output_chain_path is set: write chain to path (mode 0644)
-        - If any output path is empty: return as fact only (no_log on key)
-        - Skip writes if paths are not set (consumer's choice)
+- name: Set private key fact
+  ansible.builtin.set_fact:
+    step_ca_issue_certificate_key_pem: "{{ key_content.content | b64decode }}"
+  no_log: true
   tags:
     - issue_certificate
 
-- name: Convergence complete
+- name: Extract certificate expiry dates
+  ansible.builtin.shell: |
+    set -o pipefail
+    openssl x509 -in "{{ temp_cert_dir.path }}/cert.pem" -noout -dates
+  register: cert_dates
+  changed_when: false
+  tags:
+    - issue_certificate
+
+- name: Parse certificate expiry information
+  ansible.builtin.set_fact:
+    step_ca_issue_certificate_not_after: "{{ (cert_dates.stdout_lines | select('match', '^notAfter=') | first).split('=')[1] }}"
+  tags:
+    - issue_certificate
+
+- name: Calculate days remaining until certificate expiry
+  ansible.builtin.set_fact:
+    step_ca_issue_certificate_days_remaining: "{{ ((cert_dates.stdout_lines | select('match', '^notAfter=') | first).split('=')[1] | to_datetime('%b %d %H:%M:%S %Y %Z') - now(utc=true)).days }}"
+  tags:
+    - issue_certificate
+
+- name: Optionally write certificate to output path
+  ansible.builtin.copy:
+    content: "{{ step_ca_issue_certificate_pem }}"
+    dest: "{{ step_ca_issue_certificate_output_cert_path }}"
+    mode: "0644"
+  when: step_ca_issue_certificate_output_cert_path | length > 0
+  tags:
+    - issue_certificate
+
+- name: Optionally write private key to output path
+  ansible.builtin.copy:
+    content: "{{ step_ca_issue_certificate_key_pem }}"
+    dest: "{{ step_ca_issue_certificate_output_key_path }}"
+    mode: "0600"
+  no_log: true
+  when: step_ca_issue_certificate_output_key_path | length > 0
+  tags:
+    - issue_certificate
+
+- name: Optionally write certificate chain to output path
+  ansible.builtin.copy:
+    content: "{{ step_ca_issue_certificate_pem }}\n"
+    dest: "{{ step_ca_issue_certificate_output_chain_path }}"
+    mode: "0644"
+  when: step_ca_issue_certificate_output_chain_path | length > 0
+  tags:
+    - issue_certificate
+
+- name: Clean up temporary certificate directory
+  ansible.builtin.file:
+    path: "{{ temp_cert_dir.path }}"
+    state: absent
+  tags:
+    - issue_certificate
+
+- name: Issue certificate convergence complete
   ansible.builtin.debug:
     msg: |
-      [SCAFFOLD] issue_certificate: Stage 7 implementation pending.
-      Framework installed; structure ready for task implementation.
-
-      Next steps:
-        1. Implement assert blocks ✓ (placeholder ready)
-        2. Test CA connectivity (Stage 7)
-        3. Request leaf certificate via step CLI or uri module (Stage 7)
-        4. Parse certificate and extract expiry facts (Stage 7)
-        5. Optionally write output files (Stage 7)
-        6. Return all facts to the platform layer (Stage 7)
+      issue_certificate role complete.
+      Leaf certificate issued and facts exposed to caller.
+        - step_ca_issue_certificate_pem: Certificate (PEM)
+        - step_ca_issue_certificate_key_pem: Private key (PEM, secret)
+        - step_ca_issue_certificate_not_after: Expiry time (ISO8601)
+        - step_ca_issue_certificate_days_remaining: Days until expiry
   tags:
     - issue_certificate
