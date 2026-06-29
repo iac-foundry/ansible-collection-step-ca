@@ -108,7 +108,7 @@
 
 - name: Check if ca.json already exists
   ansible.builtin.stat:
-    path: "{{ step_ca_server_data_dir }}/ca.json"
+    path: "{{ step_ca_server_data_dir }}/config/ca.json"
   register: ca_json_stat
   tags:
     - container_server
@@ -120,10 +120,23 @@
   tags:
     - container_server
 
+- name: Create config subdirectory (smallstep image's entrypoint hardcodes
+    $STEPPATH/config/ca.json as the lookup location; everything else in
+    ca.json's own content stays flat under $STEPPATH, which it already
+    correctly references)
+  ansible.builtin.file:
+    path: "{{ step_ca_server_data_dir }}/config"
+    state: directory
+    owner: "{{ step_ca_server_service_user }}"
+    group: "{{ step_ca_server_service_group }}"
+    mode: "0700"
+  tags:
+    - container_server
+
 - name: Render ca.json configuration from template
   ansible.builtin.template:
     src: ca.json.j2
-    dest: "{{ step_ca_server_data_dir }}/ca.json"
+    dest: "{{ step_ca_server_data_dir }}/config/ca.json"
     owner: "{{ step_ca_server_service_user }}"
     group: "{{ step_ca_server_service_group }}"
     mode: "0600"
@@ -140,6 +153,14 @@
     user: "{{ step_ca_server_actual_uid }}:{{ step_ca_server_actual_gid }}"
     cap_drop:
       - ALL
+    capabilities:
+      # NET_BIND_SERVICE is required because ca.json's api.address binds to
+      # 0.0.0.0:443 (a privileged port < 1024) and the container runs as a
+      # non-root uid. Without this, the kernel refuses to exec the step-ca
+      # binary at all ("Operation not permitted") because the binary's file
+      # capabilities can't be honored once cap_drop: ALL has stripped this
+      # capability from the process's bounding set.
+      - NET_BIND_SERVICE
     ports:
       - "{{ step_ca_server_https_port }}:443"
     volumes:
