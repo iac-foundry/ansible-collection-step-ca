@@ -88,6 +88,7 @@
       -subj "/C=US/ST=State/L=City/O={{ step_ca_server_root_ca_organization }}/CN={{ step_ca_server_root_ca_cn }}"
     chmod 600 "{{ step_ca_server_data_dir }}/root_ca.key"
     chmod 644 "{{ step_ca_server_data_dir }}/root_ca.crt"
+    chown {{ step_ca_server_actual_uid }}:{{ step_ca_server_actual_gid }} "{{ step_ca_server_data_dir }}/root_ca.key" "{{ step_ca_server_data_dir }}/root_ca.crt"
   when: not root_ca_cert_stat.stat.exists
   changed_when: not root_ca_cert_stat.stat.exists
   tags:
