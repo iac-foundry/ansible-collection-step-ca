@@ -35,7 +35,7 @@
 - name: Ensure service group exists
   ansible.builtin.group:
     name: "{{ step_ca_server_service_group }}"
-    gid: "{{ step_ca_server_gid | default(omit) }}"
+    gid: "{{ step_ca_server_gid | default(omit, true) }}"
     system: true
     state: present
   register: step_ca_server_group_result
@@ -45,7 +45,7 @@
 - name: Ensure service user exists
   ansible.builtin.user:
     name: "{{ step_ca_server_service_user }}"
-    uid: "{{ step_ca_server_uid | default(omit) }}"
+    uid: "{{ step_ca_server_uid | default(omit, true) }}"
     group: "{{ step_ca_server_service_group }}"
     system: true
     shell: /usr/sbin/nologin
