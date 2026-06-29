@@ -113,10 +113,84 @@
   tags:
     - container_server
 
-- name: Generate bcrypt hash of provisioner password
-  ansible.builtin.set_fact:
-    _provisioner_password_hash: "{{ step_ca_server_provisioner_password | password_hash('bcrypt') }}"
+- name: Create local temp directory for JWK provisioner key generation
+  ansible.builtin.tempfile:
+    state: directory
+    suffix: step_ca_jwk
+  register: _jwk_tempdir
+  delegate_to: localhost
+  become: false
+  tags:
+    - container_server
+
+- name: Write provisioner password to a temp file (step CLI requires a file, not stdin, for --password-file)
+  ansible.builtin.copy:
+    content: "{{ step_ca_server_provisioner_password }}"
+    dest: "{{ _jwk_tempdir.path }}/provisioner.pass"
+    mode: "0600"
+  delegate_to: localhost
+  become: false
   no_log: true
+  tags:
+    - container_server
+
+- name: Generate provisioner JWK keypair (step CLI runs on the control node -- it is not installed on the target host)
+  ansible.builtin.command:
+    cmd: >-
+      step crypto jwk create
+      {{ _jwk_tempdir.path }}/pub.json
+      {{ _jwk_tempdir.path }}/priv.json
+      --kty EC --crv P-256 --use sig
+      --password-file {{ _jwk_tempdir.path }}/provisioner.pass
+      --force
+  delegate_to: localhost
+  become: false
+  changed_when: true
+  no_log: true
+  tags:
+    - container_server
+
+- name: Read generated public JWK
+  ansible.builtin.slurp:
+    src: "{{ _jwk_tempdir.path }}/pub.json"
+  register: _jwk_pub_raw
+  delegate_to: localhost
+  become: false
+  tags:
+    - container_server
+
+- name: Read generated encrypted private JWK (JWE JSON serialization)
+  ansible.builtin.slurp:
+    src: "{{ _jwk_tempdir.path }}/priv.json"
+  register: _jwk_priv_raw
+  delegate_to: localhost
+  become: false
+  no_log: true
+  tags:
+    - container_server
+
+- name: Parse JWK files and build the JWE compact serialization step-ca expects in encryptedKey
+  ansible.builtin.set_fact:
+    _provisioner_jwk_pub: "{{ _jwk_pub_raw.content | b64decode | from_json }}"
+    _provisioner_jwk_priv: "{{ _jwk_priv_raw.content | b64decode | from_json }}"
+  no_log: true
+  tags:
+    - container_server
+
+- name: "Build encryptedKey (RFC 7516 compact serialization: protected.encrypted_key.iv.ciphertext.tag)"
+  ansible.builtin.set_fact:
+    _provisioner_encrypted_key: >-
+      {{ _provisioner_jwk_priv.protected }}.{{ _provisioner_jwk_priv.encrypted_key }}.{{ _provisioner_jwk_priv.iv }}.{{ _provisioner_jwk_priv.ciphertext }}.{{ _provisioner_jwk_priv.tag }}
+  no_log: true
+  tags:
+    - container_server
+
+- name: Remove local temp directory
+  ansible.builtin.file:
+    path: "{{ _jwk_tempdir.path }}"
+    state: absent
+  delegate_to: localhost
+  become: false
   tags:
     - container_server
 

@@ -30,14 +30,13 @@
         "key": {
           "use": "sig",
           "kty": "EC",
-          "kid": "provisioner",
+          "kid": "{{ _provisioner_jwk_pub.kid }}",
           "crv": "P-256",
           "alg": "ES256",
-          "x": "WKn-ZIGevcwGIyyrzFoZNBdaq9_TsqzGl96oc9LCLF4",
-          "y": "y77t-RvAHRKTsSGdIYUfweuOvwrvDD-Q3Hv5J0fSKcE",
-          "d": "Hndv23pqp_nsTmQtfQcpasvMSywlmgf2esDKwLWe3_4"
+          "x": "{{ _provisioner_jwk_pub.x }}",
+          "y": "{{ _provisioner_jwk_pub.y }}"
         },
-        "encryptedKey": "",
+        "encryptedKey": "{{ _provisioner_encrypted_key }}",
         "claims": {
           "minTLSDur": 5,
           "maxTLSDur": 2160,
@@ -59,8 +58,7 @@
           "ssh": {
             "templateFile": ""
           }
-        },
-        "passwordHash": "{{ _provisioner_password_hash }}"
+        }
       }
     ]
   },
