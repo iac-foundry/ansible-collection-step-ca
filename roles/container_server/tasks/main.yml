@@ -285,8 +285,15 @@
 - name: Extract CA fingerprint (SHA-256)
   ansible.builtin.shell: |
     set -o pipefail
+    # openssl's fingerprint output is colon-separated uppercase hex
+    # (e.g. "77:C6:CA:64:..."); step CLI / step-ca's own convention
+    # (and what 'step ca bootstrap --fingerprint' / TOFU clients expect)
+    # is lowercase with no separators (e.g. "77c6ca64..." -- matching
+    # step-ca's own startup log line "X.509 Root Fingerprint: ..."), so
+    # the openssl output must be reformatted, not used as-is.
     openssl x509 -in "{{ step_ca_server_data_dir }}/root_ca.crt" \
-      -noout -fingerprint -sha256 | cut -d= -f2
+      -noout -fingerprint -sha256 \
+      | cut -d= -f2 | tr -d ':' | tr 'A-F' 'a-f'
   args:
     executable: /bin/bash
   register: ca_fingerprint_output
