@@ -65,13 +65,23 @@
   ansible.builtin.shell: |
     set -o pipefail
     export LC_ALL=C.UTF-8
-    step ca certificate \
+    export STEPPATH="{{ temp_cert_dir.path }}/step"
+    # 'step ca certificate' has no --ca-fingerprint/--ca-url flags at all
+    # (confirmed via --help) -- TOFU trust establishment is a separate
+    # command, 'step ca bootstrap', which writes the CA URL/root cert/
+    # fingerprint to $STEPPATH/config/defaults.json. After bootstrap,
+    # 'ca' commands need no further CA-related flags. Using a scoped
+    # STEPPATH (not the real one) keeps this idempotent/side-effect-free
+    # across repeated role invocations.
+    step ca bootstrap \
       --ca-url "{{ step_ca_issue_ca_url }}" \
-      --ca-fingerprint "{{ step_ca_issue_ca_fingerprint }}" \
+      --fingerprint "{{ step_ca_issue_ca_fingerprint }}" \
+      --force
+    step ca certificate \
       --provisioner-password-file=/dev/stdin \
       --not-after "{{ step_ca_issue_certificate_validity_days * 24 }}h" \
       {% for san in step_ca_issue_certificate_subject_alt_names %}\
-      --set-san "{{ san }}" \
+      --san "{{ san }}" \
       {% endfor %}\
       "{{ step_ca_issue_certificate_common_name }}" \
       "{{ temp_cert_dir.path }}/cert.pem" \
