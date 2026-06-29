@@ -34,14 +34,13 @@
         },
         "encryptedKey": "{{ _provisioner_encrypted_key }}",
         "claims": {
-          "minTLSDur": 5,
-          "maxTLSDur": 2160,
-          "defaultTLSDur": 2160,
+          "minTLSCertDuration": "5m",
+          "maxTLSCertDuration": "8760h",
+          "defaultTLSCertDuration": "720h",
           "disableRenewal": false,
           "disableSmallstepExtensions": false,
           "x509": {
-            "enabled": true,
-            "interpolateropolitanNames": true
+            "enabled": true
           },
           "ssh": {
             "enabled": false
