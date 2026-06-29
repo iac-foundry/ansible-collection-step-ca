@@ -1,8 +1,11 @@
 {
   "root": "/home/step/root_ca.crt",
-  "federated_roots": [],
+  "federatedRoots": [],
   "crt": "/home/step/root_ca.crt",
   "key": "/home/step/root_ca.key",
+  "address": "0.0.0.0:443",
+  "insecureAddress": "",
+  "dnsNames": ["{{ step_ca_server_root_ca_cn }}"],
   "db": {
     "type": "badgerV2",
     "dataSource": "/home/step/db"

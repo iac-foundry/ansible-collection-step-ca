@@ -218,6 +218,31 @@
   tags:
     - container_server
 
+- name: Create secrets subdirectory
+  ansible.builtin.file:
+    path: "{{ step_ca_server_data_dir }}/secrets"
+    state: directory
+    owner: "{{ step_ca_server_service_user }}"
+    group: "{{ step_ca_server_service_group }}"
+    mode: "0700"
+  tags:
+    - container_server
+
+- name: Write root key password file (root_ca.key is unencrypted, but the
+    step-ca binary unconditionally reads $STEPPATH/secrets/password at
+    startup and fails outright -- "error reading .../secrets/password" --
+    if it doesn't exist, regardless of whether the referenced key actually
+    needs a passphrase)
+  ansible.builtin.copy:
+    content: "{{ step_ca_server_provisioner_password }}"
+    dest: "{{ step_ca_server_data_dir }}/secrets/password"
+    owner: "{{ step_ca_server_service_user }}"
+    group: "{{ step_ca_server_service_group }}"
+    mode: "0600"
+  no_log: true
+  tags:
+    - container_server
+
 - name: Start/restart step-ca container
   community.docker.docker_container:
     name: "{{ step_ca_server_container_name }}"
