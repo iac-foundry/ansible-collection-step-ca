@@ -9,8 +9,15 @@ step_ca_server_data_dir: "/var/lib/step-ca"
 step_ca_server_provisioner_password: ""                # REQUIRED: caller-supplied secret; fail-fast if missing
 step_ca_server_service_user: "step-ca"
 step_ca_server_service_group: "step-ca"
-step_ca_server_uid: 999                                # fixed UID for the host-side service user; passed to docker_container's user: param (LADR-009)
-step_ca_server_gid: 999                                # fixed GID for the host-side service group; passed to docker_container's user: param (LADR-009)
+# uid/gid are left unset (null) by default: the OS picks the next free system
+# id (system: true), which tasks/main.yml then captures and uses for
+# docker_container's user: param (LADR-009). A fixed numeric default here
+# (999 was tried) is not safe -- it collides with whatever the base image
+# already assigned to standard system groups (e.g. systemd-journal on
+# Ubuntu), with no number guaranteed free across all images/distros. Set
+# these explicitly only if you need a specific, pre-reserved id.
+step_ca_server_uid: null
+step_ca_server_gid: null
 step_ca_server_container_name: "step-ca"
 step_ca_server_log_level: "info"
 

@@ -35,21 +35,30 @@
 - name: Ensure service group exists
   ansible.builtin.group:
     name: "{{ step_ca_server_service_group }}"
-    gid: "{{ step_ca_server_gid }}"
+    gid: "{{ step_ca_server_gid | default(omit) }}"
     system: true
     state: present
+  register: step_ca_server_group_result
   tags:
     - container_server
 
 - name: Ensure service user exists
   ansible.builtin.user:
     name: "{{ step_ca_server_service_user }}"
-    uid: "{{ step_ca_server_uid }}"
+    uid: "{{ step_ca_server_uid | default(omit) }}"
     group: "{{ step_ca_server_service_group }}"
     system: true
     shell: /usr/sbin/nologin
     create_home: false
     state: present
+  register: step_ca_server_user_result
+  tags:
+    - container_server
+
+- name: Capture the actual uid/gid assigned (whether fixed or OS-allocated)
+  ansible.builtin.set_fact:
+    step_ca_server_actual_uid: "{{ step_ca_server_user_result.uid }}"
+    step_ca_server_actual_gid: "{{ step_ca_server_group_result.gid }}"
   tags:
     - container_server
 
@@ -116,7 +125,7 @@
     image: "{{ step_ca_server_image }}"
     state: started
     restart_policy: unless-stopped
-    user: "{{ step_ca_server_uid }}:{{ step_ca_server_gid }}"
+    user: "{{ step_ca_server_actual_uid }}:{{ step_ca_server_actual_gid }}"
     cap_drop:
       - ALL
     ports:
