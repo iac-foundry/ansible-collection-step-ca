@@ -69,7 +69,7 @@
       --ca-url "{{ step_ca_issue_ca_url }}" \
       --ca-fingerprint "{{ step_ca_issue_ca_fingerprint }}" \
       --provisioner-password-file=/dev/stdin \
-      --not-after "{{ step_ca_issue_certificate_validity_days }}h" \
+      --not-after "{{ step_ca_issue_certificate_validity_days * 24 }}h" \
       {% for san in step_ca_issue_certificate_subject_alt_names %}\
       --set-san "{{ san }}" \
       {% endfor %}\
