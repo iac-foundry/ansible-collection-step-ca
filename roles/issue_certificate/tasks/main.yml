@@ -77,6 +77,7 @@
       "{{ temp_cert_dir.path }}/cert.pem" \
       "{{ temp_cert_dir.path }}/key.pem"
   args:
+    executable: /bin/bash
     stdin: "{{ step_ca_issue_provisioner_password }}"
   no_log: true
   changed_when: true
@@ -115,6 +116,8 @@
   ansible.builtin.shell: |
     set -o pipefail
     openssl x509 -in "{{ temp_cert_dir.path }}/cert.pem" -noout -dates
+  args:
+    executable: /bin/bash
   register: cert_dates
   changed_when: false
   tags:

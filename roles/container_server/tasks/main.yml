@@ -167,6 +167,8 @@
     set -o pipefail
     openssl x509 -in "{{ step_ca_server_data_dir }}/root_ca.crt" \
       -noout -fingerprint -sha256 | cut -d= -f2
+  args:
+    executable: /bin/bash
   register: ca_fingerprint_output
   changed_when: false
   tags:
