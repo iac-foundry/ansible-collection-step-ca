@@ -260,6 +260,18 @@
       # capabilities can't be honored once cap_drop: ALL has stripped this
       # capability from the process's bounding set.
       - NET_BIND_SERVICE
+    # The smallstep/step-ca image ships a built-in HEALTHCHECK that runs
+    # `step ca health`, which requires --ca-url to be configured in the
+    # step CLI's environment -- it isn't, so the check always exits 1 and
+    # Docker reports the container as (unhealthy) even when step-ca is
+    # serving requests normally. Override with a direct curl to /health,
+    # which returns {"status":"ok"} (confirmed live) and needs no config.
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf https://localhost:443/health | grep -q ok"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     ports:
       - "{{ step_ca_server_https_port }}:443"
     volumes:
