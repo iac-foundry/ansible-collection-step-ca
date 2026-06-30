@@ -267,7 +267,10 @@
     # serving requests normally. Override with a direct curl to /health,
     # which returns {"status":"ok"} (confirmed live) and needs no config.
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf https://localhost:443/health | grep -q ok"]
+      # -k skips TLS verification: curl inside the container has no
+      # truststore for the step-ca root, so -sf alone exits 60.
+      # Loopback health check -- skipping cert check is acceptable.
+      test: ["CMD-SHELL", "curl -sfk https://localhost:443/health | grep -q ok"]
       interval: 30s
       timeout: 5s
       retries: 3
